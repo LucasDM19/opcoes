@@ -10,7 +10,8 @@ STOCK=2
 CALL=78
 PUT=82
 
-MIN_VOLNEG = 100
+MIN_VOLNEG = 0
+MAX_DIAS_OPCAO = 9999
 
 def subtraiDatasInteger(data_inicio, data_fim):
    from datetime import datetime
@@ -20,6 +21,10 @@ def subtraiDatasInteger(data_inicio, data_fim):
    delta = b - a
    return delta.days # that's it
 
+def estimaFatorDeDesconto(call, put, strike, spot):
+   fatorDeDesconto = ((put + spot)-call)/strike
+   return fatorDeDesconto
+   
 def s(a,i,f): return a[i-1:f].strip()
 def f(a,i,f): return float(a[i-1:f])/100
 def i(a,i,f): return int(a[i-1:f])
@@ -57,9 +62,9 @@ for arquivo in os.listdir('./input')[:1]:
             #Se for uma opção de compra lista a data, o código de negociação, o preço de exercicio e data de vencimento
             if CODBDI==STOCK and "PETR4" in CODNEG:
                 tabela_acoes+=[[DATA, CODNEG,PREULT,PREEXE, DATVEN]] 
-            if CODBDI==CALL and "PETR" in CODNEG and (NOMRES[0] == "PETR" and len(NOMRES) == 1) and subtraiDatasInteger(DATA, DATVEN) <= 5 :
+            if CODBDI==CALL and "PETR" in CODNEG and (NOMRES[0] == "PETR" and len(NOMRES) == 1) and subtraiDatasInteger(DATA, DATVEN) <= MAX_DIAS_OPCAO :
                 tabela_opcoes_compra+=[[DATA, CODNEG,PREULT,PREEXE, DATVEN, TOTNEG]]
-            if CODBDI==PUT and "PETR" in CODNEG and (NOMRES[0] == "PETR" and len(NOMRES) == 1) and subtraiDatasInteger(DATA, DATVEN) <= 5 :
+            if CODBDI==PUT and "PETR" in CODNEG and (NOMRES[0] == "PETR" and len(NOMRES) == 1) and subtraiDatasInteger(DATA, DATVEN) <= MAX_DIAS_OPCAO :
                 tabela_opcoes_venda+=[[DATA, CODNEG,PREULT,PREEXE, DATVEN, TOTNEG]]
 
 print("qtd_compra=", len(tabela_opcoes_compra), ", qtd_venda=", len(tabela_opcoes_venda) )
@@ -90,8 +95,8 @@ for dia in df_acoes.DATA:
    df_venda_ITM = df_hoje_venda.loc[ spot - df_hoje_venda['PREEXE'] < -1*MARGEM_MONEY ].sort_values(by=['PREEXE', 'DATVEN'], ascending=[False, False])
    df_venda_ATM = df_hoje_venda.loc[ (spot - df_hoje_venda['PREEXE'] >= -1*MARGEM_MONEY) & (spot - df_hoje_venda['PREEXE'] <= MARGEM_MONEY) ].sort_values(by=['PREEXE', 'DATVEN'], ascending=[False, False])
    
-   df_compra =  df_compra_ATM
-   df_venda = df_venda_ATM
+   df_compra =  df_compra_OTM
+   df_venda = df_venda_OTM
    
    dias += 1
    if( dias >= QTD_DIAS ):
@@ -102,7 +107,7 @@ for dia in df_acoes.DATA:
          if df_hoje_compra.loc[df_hoje_compra['CODNEG'] == c['CODNEG'] ].empty:
             print( "Opção de compra ", c['CODNEG'] ," virou Pó! Valor perdido=", c['INV'] )
             lista_po.append( c )
-            saldo += (0-c['PREULT']) * c['QTD'] # Apuro lucro ou prejuízo
+            saldo += 0*(0-c['PREULT']) * c['QTD'] # Apuro lucro ou prejuízo
          else:
             preco_venda = float(df_hoje_compra.loc[df_hoje_compra['CODNEG'] == c['CODNEG'] ].PREULT) #Por quanto vendeu
             print("Vendi opção ", c['CODNEG'], ", comprei por ", c['PREULT'], ", vendi por ", preco_venda )
@@ -115,7 +120,7 @@ for dia in df_acoes.DATA:
          if df_hoje_venda.loc[df_hoje_venda['CODNEG'] == v['CODNEG'] ].empty:
             print( "Opção de venda ", v['CODNEG'] ," virou Pó! Valor perdido=", v['INV'] )
             lista_po.append( v )
-            saldo += (0-v['PREULT']) * v['QTD'] # Apuro lucro ou prejuízo
+            saldo += 0*(0-v['PREULT']) * v['QTD'] # Apuro lucro ou prejuízo
          else:
             preco_venda = float(df_hoje_venda.loc[df_hoje_venda['CODNEG'] == v['CODNEG'] ].PREULT) #Por quanto vendeu
             print("Vendi opção ", v['CODNEG'], ", comprei por ", v['PREULT'], ", vendi por ", preco_venda )
@@ -134,6 +139,11 @@ for dia in df_acoes.DATA:
          print("Comprarei Opção de compra ", nome_opcao, ", ao preço de ", preco_opcao, ", quantidade de ", qtd_compra, ", strike=", strike, ", vencimento=", dt_vencimento)
          ordem_compra = {'CODNEG' : nome_opcao, 'PREULT' : preco_opcao, 'QTD' : qtd_compra, 'INV' : investido, }
          carteira_compra.append( ordem_compra )
+         valoresMeses = {"A" : "M", "B" : "N", "C" : "O", "D" : "P", "E" : "Q", "F" : "R", "G" : "S", "H" : "T", "I" : "U", "J" : "V", "K" : "W", "L" : "X", }
+         nomeOpVenda = nome_opcao[0:4] + valoresMeses[nome_opcao[4]] + nome_opcao[5:]
+         #preco_venda_c = float(df_venda.loc[df_venda['CODNEG'] == nomeOpVenda].PREULT)
+         d_estimado = 1.0 #Obtido heuristicamente # = estimaFatorDeDesconto(call=preco_opcao, put=preco_venda_c, strike=strike, spot=spot)
+         #print("Estimei fator de desconto ->", d_estimado)
       
       for nome_opcao in df_venda.head(QTD_OPCOES).CODNEG:
          quota_compra = int( saldo/(2*QTD_OPCOES) )
