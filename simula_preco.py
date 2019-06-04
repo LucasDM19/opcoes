@@ -11,7 +11,7 @@ CALL=78
 PUT=82
 
 MIN_VOLNEG = 0
-MAX_DIAS_OPCAO = 9999
+MAX_DIAS_OPCAO = 3
 
 def subtraiDatasInteger(data_inicio, data_fim):
    from datetime import datetime
@@ -83,7 +83,7 @@ df_op_compra=pd.DataFrame(tabela_opcoes_compra, columns=['DATA', 'CODNEG','PREUL
 df_op_venda=pd.DataFrame(tabela_opcoes_venda, columns=['DATA', 'CODNEG','PREULT','PREEXE', 'DATVEN', 'TOTNEG'])
 
 MARGEM_MONEY = 0.20  # Diferença de até 10% será ATM
-QTD_OPCOES = 10  # Compro apenas as N opções
+QTD_OPCOES = 3  # Compro apenas as N opções
 QTD_DIAS = 1 # A cada tempo      
 
 saldo = 1000.0
@@ -111,15 +111,13 @@ for dia in df_acoes.DATA:
       dias = 0
       print("Vendendo as opções do dia anterior")
       for c in carteira_compra:
-      
-         #if df_hoje_compra.loc[df_hoje_compra['CODNEG'] == c['CODNEG'] ].empty:
-         #   print( "Opção de compra ", c['CODNEG'] ," virou Pó! Valor perdido=", c['INV'] )
-      
          fatorDesconto = float(selic.loc[selic['data'] == dia].valor) # Busco na Selic
+         fatorDesconto = 1 # Aproximação
          strike = c['PREEXE']
          varPre = estimaVariacaoPrecos(strike=strike, spot=spot, fatorDesconto=fatorDesconto)
          print("Preço alterando, ", varPre, " da Opção de compra ", c['CODNEG'], " e correspondente opção de venda ", )
          saldo += varPre * c['QTD']
+      carteira_compra = []
                   
       for nome_opcao in df_compra.head(QTD_OPCOES).CODNEG:
          quota_compra = int( saldo/(2*QTD_OPCOES) )
@@ -128,6 +126,7 @@ for dia in df_acoes.DATA:
          investido = int(qtd_compra*preco_opcao)
          strike = float(df_compra.loc[df_compra['CODNEG'] == nome_opcao].PREEXE)
          fatorDesconto = float(selic.loc[selic['data'] == dia].valor) # Busco na Selic
+         fatorDesconto = 1 # Aproximação
          dt_vencimento = int(df_compra.loc[df_compra['CODNEG'] == nome_opcao].DATVEN)
          print("Comprarei Opção de compra ", nome_opcao, ", ao preço de ", preco_opcao, ", quantidade de ", qtd_compra, ", strike=", strike, ", vencimento=", dt_vencimento)
          ordem_compra = {'CODNEG' : nome_opcao, 'PREULT' : preco_opcao, 'QTD' : qtd_compra, 'INV' : investido, 'PREEXE' : strike }
